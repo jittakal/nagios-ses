@@ -1,0 +1,69 @@
+#!/usr/bin/env ruby
+require 'rubygems'
+require 'yaml'
+require 'choice'
+require 'amazon-ses-mailer'
+
+Choice.options do
+  option :subject do
+    short '-s'
+    long '--subject="Email Notification subject"'
+    desc 'Subject line for this email'
+    default 'Email Alert'
+  end
+
+  option :body do
+    short '-b'
+    long '--body=EMAIL_BODY'
+    desc 'Email message body'
+  end
+
+  option :recipients do
+    short '-t'
+    long '--to=recipient1@mailserver.com,recipient2@mailserver.com'
+    desc 'Comma separated list of recipients for this email'
+  end
+
+  option :sender do
+    short '-f'
+    long '--from=sender@mailserver.com'
+    desc 'Sender of this email'
+  end
+
+  option :credentials do
+    short '-c'
+    long '--credentials=some/credential/directory/filename.yml'
+    desc 'Path to YAML file containing AWS SECRET_KEY and AWS ACCESS_KEY'
+  end
+end
+
+if Choice[:credentials].nil?
+  puts "AWS Access credentials file path required"
+  exit 1
+end
+
+access_credentials = YAML.load_file Choice[:credentials]
+if access_credentials['access_key_id'].nil? or access_credentials['secret_access_key'].nil?
+  puts "AWS Access credentials missing from file #{Choice[:credentials]}"
+  exit 1
+end
+
+if Choice[:recipients].nil?
+  puts "Please provide recipients of this email"
+  exit 1
+end
+
+if Choice[:sender].nil?
+  puts 'Please provide a sender address for this email'
+  exit 1
+end
+
+mailer = AmazonSes::Mailer.new :secret_key => access_credentials['secret_access_key'], :access_key => access_credentials['access_key_id']
+
+mailer.deliver :to => Choice[:recipients],
+               :from => Choice[:sender],
+               :subject => Choice[:subject],
+               :content_type => 'text/plain',
+               :body => Choice[:body]
+
+exit 0
